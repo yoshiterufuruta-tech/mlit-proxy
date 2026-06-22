@@ -89,7 +89,7 @@ def build_feature_vector(item):
 
 
 # -----------------------------
-# AI 推定（ダミー）
+# AI 推定（軽量ダミー）
 # -----------------------------
 def estimate_price(features):
     base = 2000.0
@@ -109,49 +109,52 @@ def estimate_price(features):
 
 
 # -----------------------------
-# 全国推定
+# 都道府県単位の推定（Render 無料プラン対応）
 # -----------------------------
-def estimate_all_japan(year=2024, quarter=4, sleep_sec=0.2):
+@app.get("/estimate")
+def estimate(year: int = 2024, quarter: int = 4, pref: int = None):
+    if pref is None:
+        return {"error": "pref パラメータを指定してください（例: /estimate?pref=23）"}
+
     results = []
 
     prefectures = fetch_prefectures()
-    for pref in prefectures:
-        pref_code = pref["id"]
-        pref_name = pref["name"]
+    target = [p for p in prefectures if int(p["id"]) == pref]
 
-        cities = fetch_cities(pref_code)
-        for city in cities:
-            city_code = city["id"]
-            city_name = city["name"]
+    if not target:
+        return {"error": f"都道府県コード {pref} は存在しません"}
 
-            raw = fetch_transactions(city_code, year, quarter)
-            if not raw:
-                continue
+    pref_code = target[0]["id"]
+    pref_name = target[0]["name"]
 
-            for r in raw:
-                r["pref"] = pref_name
-                r["city"] = city_name
+    cities = fetch_cities(pref_code)
 
-                item = normalize_record(r)
-                fv = build_feature_vector(item)
-                pred = estimate_price(fv)
+    for city in cities:
+        city_code = city["id"]
+        city_name = city["name"]
 
-                results.append({
-                    "pref": item["pref"],
-                    "city": item["city"],
-                    "lat": item["lat"],
-                    "lng": item["lng"],
-                    "predicted_price": pred["median"],
-                    "ci95": pred["ci95"],
-                    "raw": item,
-                })
+        raw = fetch_transactions(city_code, year, quarter)
+        if not raw:
+            continue
 
-            time.sleep(sleep_sec)
+        for r in raw:
+            r["pref"] = pref_name
+            r["city"] = city_name
 
-    return results
+            item = normalize_record(r)
+            fv = build_feature_vector(item)
+            pred = estimate_price(fv)
 
+            results.append({
+                "pref": item["pref"],
+                "city": item["city"],
+                "lat": item["lat"],
+                "lng": item["lng"],
+                "predicted_price": pred["median"],
+                "ci95": pred["ci95"],
+                "raw": item,
+            })
 
-@app.get("/estimate")
-def estimate(year: int = 2024, quarter: int = 4):
-    data = estimate_all_japan(year, quarter)
-    return {"count": len(data), "data": data}
+        time.sleep(0.15)  # API 負荷対策
+
+    return {"count": len(results), "data": results}
