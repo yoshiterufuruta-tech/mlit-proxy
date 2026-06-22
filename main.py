@@ -7,8 +7,9 @@ app = FastAPI()
 MLIT_API_KEY = os.getenv("MLIT_API_KEY")
 
 def mlit_get(url, params):
-    headers = {"Ocp-Apim-Subscription-Key": MLIT_API_KEY}
-    r = requests.get(url, params=params, headers=headers, timeout=30)
+    # MLIT API は key を URL パラメータで渡す必要がある
+    params["key"] = MLIT_API_KEY
+    r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     return r.json()
 
