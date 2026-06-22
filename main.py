@@ -2,11 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
-from typing import List, Dict, Any, Optional
 
 app = FastAPI()
 
-# CORS（必要なら調整）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,6 +14,11 @@ app.add_middleware(
 
 BASE_URL = "https://www.land.mlit.go.jp/webland/api"
 HEADERS = {"User-Agent": "mlit-proxy/1.0"}
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "MLIT Proxy Running on Render"}
 
 
 # -----------------------------
@@ -63,8 +66,6 @@ def normalize_record(r):
         "type": r.get("Type"),
         "area": _to_float(r.get("Area")),
         "building_year": _to_int(r.get("BuildingYear")),
-        "use": r.get("Use"),
-        "structure": r.get("Structure"),
         "walk": _to_int(r.get("Walk")),
         "price": _to_float(r.get("TradePrice")),
         "lat": _to_float(r.get("Latitude")),
@@ -91,10 +92,6 @@ def build_feature_vector(item):
 # AI 推定（ダミー）
 # -----------------------------
 def estimate_price(features):
-    # 本来は外部 AI モデルに POST
-    # r = requests.post(AI_ENDPOINT, json=features)
-    # return r.json()
-
     base = 2000.0
     if features.get("area"):
         base *= features["area"] / 50.0
@@ -152,14 +149,6 @@ def estimate_all_japan(year=2024, quarter=4, sleep_sec=0.2):
             time.sleep(sleep_sec)
 
     return results
-
-
-# -----------------------------
-# API エンドポイント
-# -----------------------------
-@app.get("/")
-def root():
-    return {"status": "ok", "message": "MLIT Proxy Running on Render"}
 
 
 @app.get("/estimate")
