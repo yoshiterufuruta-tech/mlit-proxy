@@ -1,10 +1,11 @@
 from fastapi import FastAPI
 import requests
+import os
 
 app = FastAPI()
 
 # MLIT API KEY をここに入れる
-MLIT_API_KEY = "e55377256daf4f1bb616d8110fcca878"
+MLIT_API_KEY = os.getenv("e55377256daf4f1bb616d8110fcca878")
 
 def mlit_get(url, params):
     headers = {"Ocp-Apim-Subscription-Key": MLIT_API_KEY}
