@@ -6,27 +6,30 @@ app = FastAPI()
 
 MLIT_API_KEY = os.getenv("MLIT_API_KEY")
 
-def mlit_get(url, params):
-    # MLIT API は key を URL パラメータで渡す必要がある
-    params["key"] = MLIT_API_KEY
+def mlit_get(url, params, use_key=False):
+    if use_key:
+        params["key"] = MLIT_API_KEY
     r = requests.get(url, params=params, timeout=30)
     r.raise_for_status()
     return r.json()
 
 @app.get("/api/xit0010")
 def xit0010():
+    # ★ key を付けない
     return mlit_get("https://www.reinfolib.mlit.go.jp/api/xit0010/", {"o": "json"})
 
 @app.get("/api/xit002")
 def xit002(a: str):
+    # ★ key を付けない
     return mlit_get("https://www.reinfolib.mlit.go.jp/api/xit002/", {"o": "json", "a": a})
 
 @app.get("/api/xit001")
 def xit001(a: str = "", b: str = "", y: str = "", q: str = ""):
+    # ★ 取引価格情報だけ key が必要
     return mlit_get("https://www.reinfolib.mlit.go.jp/api/xit001/", {
         "o": "json",
         "a": a,
         "b": b,
         "y": y,
         "q": q
-    })
+    }, use_key=True)
