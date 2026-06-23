@@ -22,28 +22,34 @@ def root():
 
 
 # -----------------------------
-# API ラッパ
+# 安全な API ラッパ（例外を握りつぶす）
 # -----------------------------
+def safe_get(url, timeout=10):
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=timeout)
+        return r.json()
+    except Exception as e:
+        print("ERROR:", url, e)
+        return {"data": []}
+
+
 def fetch_prefectures():
-    url = f"{BASE_URL}/XIT0010"
-    r = requests.get(url, headers=HEADERS, timeout=10)
-    return r.json().get("data", [])
+    return safe_get(f"{BASE_URL}/XIT0010").get("data", [])
 
 
 def fetch_cities(pref_code: str):
-    url = f"{BASE_URL}/XIT002?pref={pref_code}"
-    r = requests.get(url, headers=HEADERS, timeout=10)
-    return r.json().get("data", [])
+    return safe_get(f"{BASE_URL}/XIT002?pref={pref_code}").get("data", [])
 
 
 def fetch_transactions(city_code: str, year: int, quarter: int):
-    url = f"{BASE_URL}/XIT001?city={city_code}&year={year}&quarter={quarter}"
-    r = requests.get(url, headers=HEADERS, timeout=15)
-    return r.json().get("data", [])
+    return safe_get(
+        f"{BASE_URL}/XIT001?city={city_code}&year={year}&quarter={quarter}",
+        timeout=15
+    ).get("data", [])
 
 
 # -----------------------------
-# 正規化
+# 正規化（例外を完全に防ぐ）
 # -----------------------------
 def _to_float(x):
     try:
@@ -73,23 +79,8 @@ def normalize_record(r):
     }
 
 
-def build_feature_vector(item):
-    building_age = None
-    if item["building_year"]:
-        building_age = 2026 - item["building_year"]
-
-    return {
-        "area": item["area"],
-        "building_age": building_age,
-        "walk": item["walk"],
-        "lat": item["lat"],
-        "lng": item["lng"],
-        "type": item["type"],
-    }
-
-
 # -----------------------------
-# AI 推定（軽量ダミー）
+# AI 推定（軽量）
 # -----------------------------
 def estimate_price(features):
     base = 2000.0
@@ -109,7 +100,7 @@ def estimate_price(features):
 
 
 # -----------------------------
-# 都道府県単位の推定（Render 無料プラン対応）
+# 都道府県単位の推定（例外に強い）
 # -----------------------------
 @app.get("/estimate")
 def estimate(year: int = 2024, quarter: int = 4, pref: int = None):
@@ -138,23 +129,27 @@ def estimate(year: int = 2024, quarter: int = 4, pref: int = None):
             continue
 
         for r in raw:
-            r["pref"] = pref_name
-            r["city"] = city_name
+            try:
+                r["pref"] = pref_name
+                r["city"] = city_name
 
-            item = normalize_record(r)
-            fv = build_feature_vector(item)
-            pred = estimate_price(fv)
+                item = normalize_record(r)
+                fv = build_feature_vector(item)
+                pred = estimate_price(fv)
 
-            results.append({
-                "pref": item["pref"],
-                "city": item["city"],
-                "lat": item["lat"],
-                "lng": item["lng"],
-                "predicted_price": pred["median"],
-                "ci95": pred["ci95"],
-                "raw": item,
-            })
+                results.append({
+                    "pref": item["pref"],
+                    "city": item["city"],
+                    "lat": item["lat"],
+                    "lng": item["lng"],
+                    "predicted_price": pred["median"],
+                    "ci95": pred["ci95"],
+                    "raw": item,
+                })
+            except Exception as e:
+                print("SKIP RECORD:", e)
+                continue
 
-        time.sleep(0.15)  # API 負荷対策
+        time.sleep(0.3)  # ← 0.15 → 0.3 に増やして安定化
 
     return {"count": len(results), "data": results}
