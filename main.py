@@ -34,16 +34,16 @@ def safe_get(url, timeout=10):
 
 
 def fetch_prefectures():
-    return safe_get(f"{BASE_URL}/XIT0010").get("data", [])
+    return safe_get(f"{BASE_URL}/xit0010").get("data", [])
 
 
 def fetch_cities(pref_code: str):
-    return safe_get(f"{BASE_URL}/XIT002?pref={pref_code}").get("data", [])
+    return safe_get(f"{BASE_URL}/xit002?pref={pref_code}").get("data", [])
 
 
 def fetch_transactions(city_code: str, year: int, quarter: int):
     return safe_get(
-        f"{BASE_URL}/XIT001?city={city_code}&year={year}&quarter={quarter}",
+        f"{BASE_URL}/xit001?city={city_code}&year={year}&quarter={quarter}",
         timeout=15
     ).get("data", [])
 
